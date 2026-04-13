@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Viaje Toronto & NYC</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0a0f; font-family: 'Segoe UI', system-ui, sans-serif; }
+  input:focus, textarea:focus { border-color: #c9a96e !important; outline: none; }
+  input[type=number]::-webkit-inner-spin-button { opacity: 0.4; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #13131a; }
+  ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+const CATEGORIES = [
+  { id: "vuelos",     icon: "✈️",  label: "Vuelos",             sub: "Pasajes aéreos ida y vuelta" },
+  { id: "hospedaje",  icon: "🏨",  label: "Hospedaje",          sub: "Hotel, Airbnb, noches" },
+  { id: "valijas",    icon: "🧳",  label: "Equipaje",           sub: "Valijas, exceso de peso" },
+  { id: "auto",       icon: "🚗",  label: "Alquiler de Auto",   sub: "Renta, combustible, peajes" },
+  { id: "transporte", icon: "🚇",  label: "Transporte Local",   sub: "Subway, taxi, Uber, traslados" },
+  { id: "comida",     icon: "🍽️", label: "Comida & Bebida",    sub: "Restaurantes, cafés, snacks" },
+  { id: "upgrade",    icon: "⭐",  label: "Upgrades & Extras",  sub: "Asiento premium, sala VIP" },
+  { id: "entret",     icon: "🎭",  label: "Entretenimiento",    sub: "Museos, shows, actividades" },
+  { id: "compras",    icon: "🛍️", label: "Compras & Shopping", sub: "Ropa, souvenirs, regalos" },
+  { id: "seguro",     icon: "🛡️", label: "Seguro de Viaje",    sub: "Seguro médico, visa fees" },
+];
+
+const CURRENCIES = ["USD", "ARS", "CAD"];
+const SYM = { USD: "USD $", ARS: "ARS $", CAD: "CAD $" };
+let _id = 1;
+const uid = () => `r${_id++}`;
+function fmt(n) { return Number(n||0).toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+const C = { bg:"#0a0a0f", surface:"#13131a", surface2:"#1c1c28", border:"#2a2a3a", accent:"#c9a96e", purple:"#a78bda", text:"#e8e8f0", muted:"#888899", green:"#6ec9a9", red:"#e07575" };
+
+function App() {
+  const [currency, setCurrency] = useState("USD");
+  const [openCats, setOpenCats] = useState({ vuelos: true, hospedaje: true });
+  const [rows, setRows] = useState(() => { const i={}; CATEGORIES.forEach(c=>{i[c.id]=[];}); return i; });
+  const [notes, setNotes] = useState("");
+
+  const toggleCat = id => setOpenCats(p=>({...p,[id]:!p[id]}));
+  const addRow = catId => { setRows(p=>({...p,[catId]:[...p[catId],{id:uid(),desc:"",amount:"",payer:"jonathan"}]})); setOpenCats(p=>({...p,[catId]:true})); };
+  const updateRow = (catId,rowId,field,value) => setRows(p=>({...p,[catId]:p[catId].map(r=>r.id===rowId?{...r,[field]:value}:r)}));
+  const deleteRow = (catId,rowId) => setRows(p=>({...p,[catId]:p[catId].filter(r=>r.id!==rowId)}));
+
+  const sym = SYM[currency];
+  let paidJ=0, paidG=0, totalItems=0;
+  const catTotals={}, catPaidJ={}, catPaidG={};
+  CATEGORIES.forEach(c=>{catTotals[c.id]=0;catPaidJ[c.id]=0;catPaidG[c.id]=0;});
+  CATEGORIES.forEach(c=>{
+    rows[c.id].forEach(r=>{
+      const amt=parseFloat(r.amount)||0; if(!amt)return; totalItems++;
+      catTotals[c.id]+=amt;
+      if(r.payer==="jonathan"){paidJ+=amt;catPaidJ[c.id]+=amt;}
+      else if(r.payer==="giselle"){paidG+=amt;catPaidG[c.id]+=amt;}
+      else{paidJ+=amt/2;paidG+=amt/2;catPaidJ[c.id]+=amt/2;catPaidG[c.id]+=amt/2;}
+    });
+  });
+
+  const grand=paidJ+paidG, half=grand/2;
+  const balJ=paidJ-half, balG=paidG-half, absB=Math.abs(balJ);
+  let vColor=C.muted, vText="Cargá gastos para calcular el saldo";
+  if(grand>0){
+    if(absB<0.5){vColor=C.green;vText="✅ Están al día. Nadie le debe nada a nadie.";}
+    else if(balJ>0){vColor=C.red;vText=`💸 Giselle le debe a Jonathan  ${sym} ${fmt(absB)}`;}
+    else{vColor=C.red;vText=`💸 Jonathan le debe a Giselle  ${sym} ${fmt(absB)}`;}
+  }
+
+  const inp={background:C.surface2,border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 10px",color:C.text,fontSize:13,fontFamily:"inherit",width:"100%"};
+  const pBtn=(a,col,bg)=>({padding:"6px 10px",borderRadius:7,border:`1px solid ${a?col:C.border}`,background:a?bg:C.surface2,color:a?col:C.muted,fontSize:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"});
+
+  return (
+    <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,minHeight:"100vh",color:C.text,paddingBottom:60}}>
+      <div style={{maxWidth:900,margin:"0 auto",padding:"0 20px"}}>
+
+        <div style={{textAlign:"center",padding:"36px 0 24px",borderBottom:`1px solid ${C.border}`,marginBottom:28}}>
+          <div style={{fontSize:11,letterSpacing:4,textTransform:"uppercase",color:C.accent,marginBottom:8,fontWeight:600}}>✈ Planificación de Viaje</div>
+          <div style={{fontSize:"clamp(1.8rem,5vw,2.8rem)",fontWeight:900,background:`linear-gradient(135deg,${C.accent},#fff,${C.purple})`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text",marginBottom:14,lineHeight:1.1}}>Toronto & New York</div>
+          <div style={{display:"flex",justifyContent:"center",gap:10,flexWrap:"wrap"}}>
+            {["📅 1 semana","👤 2 viajeros","🍁 Toronto","🗽 Nueva York"].map(t=>(
+              <span key={t} style={{fontSize:11,background:C.surface,border:`1px solid ${C.border}`,borderRadius:20,padding:"4px 12px",color:C.muted}}>{t}</span>
+            ))}
+          </div>
+        </div>
+
+        <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:8,marginBottom:20}}>
+          <span style={{fontSize:11,color:C.muted}}>Moneda:</span>
+          {CURRENCIES.map(c=>(
+            <button key={c} onClick={()=>setCurrency(c)} style={{padding:"4px 13px",borderRadius:20,border:`1px solid ${currency===c?C.accent:C.border}`,background:currency===c?C.accent:C.surface,color:currency===c?"#0a0a0f":C.muted,fontWeight:currency===c?700:400,cursor:"pointer",fontSize:12}}>{c}</button>
+          ))}
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:28}}>
+          {[{name:"Jonathan Moscoso",col:C.accent,bg:"rgba(201,169,110,0.12)",ava:"J",paid:paidJ,balance:balJ},
+            {name:"Giselle",col:C.purple,bg:"rgba(167,139,218,0.12)",ava:"G",paid:paidG,balance:balG}].map(p=>(
+            <div key={p.name} style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`3px solid ${p.col}`,borderRadius:14,padding:"16px 18px",display:"flex",alignItems:"center",gap:14}}>
+              <div style={{width:42,height:42,borderRadius:"50%",background:p.bg,color:p.col,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:17,flexShrink:0}}>{p.ava}</div>
+              <div>
+                <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{p.name}</div>
+                <div style={{fontSize:21,fontWeight:800,color:p.col,lineHeight:1}}>{sym} {fmt(p.paid)}</div>
+                <div style={{fontSize:11,color:C.muted,marginTop:3}}>
+                  pagado · {grand>0 ? p.balance>0.5 ? `cobrar ${sym} ${fmt(Math.abs(p.balance))}` : p.balance<-0.5 ? `deber ${sym} ${fmt(Math.abs(p.balance))}` : "al día ✓" : "sin gastos"}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:28}}>
+          {CATEGORIES.map(cat=>(
+            <div key={cat.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden"}}>
+              <div onClick={()=>toggleCat(cat.id)} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",cursor:"pointer"}}>
+                <div style={{width:36,height:36,borderRadius:9,background:C.surface2,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{cat.icon}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:14,fontWeight:600}}>{cat.label}</div>
+                  <div style={{fontSize:11,color:C.muted,marginTop:1}}>{cat.sub}</div>
+                </div>
+                {catTotals[cat.id]>0 && <div style={{fontSize:15,fontWeight:700,color:C.accent,marginRight:8,whiteSpace:"nowrap"}}>{sym} {fmt(catTotals[cat.id])}</div>}
+                <span style={{color:C.muted,fontSize:10,display:"inline-block",transform:openCats[cat.id]?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▼</span>
+              </div>
+              {openCats[cat.id] && (
+                <div style={{padding:"14px 18px",borderTop:`1px solid ${C.border}`,display:"flex",flexDirection:"column",gap:10}}>
+                  {rows[cat.id].map((row,i)=>(
+                    <div key={row.id}>
+                      {i>0 && <div style={{height:1,background:C.border,marginBottom:10}}/>}
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 110px auto 34px",gap:8,alignItems:"end"}}>
+                        <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                          <label style={{fontSize:10,color:C.muted,fontWeight:600,letterSpacing:0.5,textTransform:"uppercase"}}>Descripción</label>
+                          <input style={inp} placeholder="Ej: Vuelo BUE–YYZ" value={row.desc} onChange={e=>updateRow(cat.id,row.id,"desc",e.target.value)}/>
+                        </div>
+                        <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                          <label style={{fontSize:10,color:C.muted,fontWeight:600,letterSpacing:0.5,textTransform:"uppercase"}}>Monto</label>
+                          <input style={inp} type="number" placeholder="0.00" min="0" step="0.01" value={row.amount} onChange={e=>updateRow(cat.id,row.id,"amount",e.target.value)}/>
+                        </div>
+                        <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                          <label style={{fontSize:10,color:C.muted,fontWeight:600,letterSpacing:0.5,textTransform:"uppercase"}}>Quién paga</label>
+                          <div style={{display:"flex",gap:4}}>
+                            <button style={pBtn(row.payer==="jonathan",C.accent,"rgba(201,169,110,0.18)")} onClick={()=>updateRow(cat.id,row.id,"payer","jonathan")}>Jonathan</button>
+                            <button style={pBtn(row.payer==="giselle",C.purple,"rgba(167,139,218,0.18)")} onClick={()=>updateRow(cat.id,row.id,"payer","giselle")}>Giselle</button>
+                            <button style={pBtn(row.payer==="ambos","#e8e8f0","rgba(255,255,255,0.08)")} onClick={()=>updateRow(cat.id,row.id,"payer","ambos")}>Ambos</button>
+                          </div>
+                        </div>
+                        <button onClick={()=>deleteRow(cat.id,row.id)} style={{width:30,height:30,borderRadius:7,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",alignSelf:"flex-end"}}>×</button>
+                      </div>
+                    </div>
+                  ))}
+                  <button onClick={()=>addRow(cat.id)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:12,padding:"7px 14px",cursor:"pointer",width:"100%",marginTop:2}}>
+                    ＋ Agregar {cat.label.toLowerCase()}
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:1.5,textTransform:"uppercase",marginBottom:7}}>📝 Notas del viaje</div>
+          <textarea style={{width:"100%",background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:13,color:C.text,fontSize:13,fontFamily:"inherit",resize:"vertical",minHeight:68}}
+            placeholder="Confirmaciones de reservas, links, datos importantes..." value={notes} onChange={e=>setNotes(e.target.value)}/>
+        </div>
+
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:18,padding:26,marginBottom:28}}>
+          <div style={{fontSize:18,fontWeight:800,marginBottom:18}}>📊 Resumen</div>
+
+          <div style={{background:"linear-gradient(135deg,rgba(201,169,110,0.1),rgba(124,111,205,0.1))",border:"1px solid rgba(201,169,110,0.2)",borderRadius:12,padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+            <div>
+              <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:2,fontWeight:600,marginBottom:3}}>Total del viaje</div>
+              <div style={{fontSize:11,color:C.muted,marginTop:2}}>{totalItems} gastos · cada uno paga {sym} {fmt(half)}</div>
+            </div>
+            <div style={{fontSize:30,fontWeight:900,background:`linear-gradient(135deg,${C.accent},#fff)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}>{sym} {fmt(grand)}</div>
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:18}}>
+            {[{name:"Jonathan Moscoso",col:C.accent,paid:paidJ,data:catPaidJ},{name:"Giselle",col:C.purple,paid:paidG,data:catPaidG}].map(p=>(
+              <div key={p.name} style={{background:C.surface2,borderRadius:12,padding:16,border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",fontWeight:700,color:p.col,marginBottom:6}}>{p.name}</div>
+                <div style={{fontSize:26,fontWeight:900,color:p.col,marginBottom:4}}>{sym} {fmt(p.paid)}</div>
+                <div style={{fontSize:11,color:C.muted,marginBottom:10}}>desembolsado</div>
+                {CATEGORIES.filter(c=>p.data[c.id]>0).map(c=>(
+                  <div key={c.id} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:12}}>
+                    <span style={{color:C.muted}}>{c.icon} {c.label}</span>
+                    <span style={{fontWeight:700}}>{sym} {fmt(p.data[c.id])}</span>
+                  </div>
+                ))}
+                {CATEGORIES.filter(c=>p.data[c.id]>0).length===0 && <div style={{fontSize:12,color:C.muted}}>Sin pagos aún</div>}
+              </div>
+            ))}
+          </div>
+
+          <div style={{background:"linear-gradient(135deg,rgba(201,169,110,0.06),rgba(124,111,205,0.06))",border:"1px solid rgba(201,169,110,0.18)",borderRadius:14,padding:"18px 20px"}}>
+            <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",fontWeight:700,color:C.muted,marginBottom:14}}>⚖️ Conciliación</div>
+            {[
+              {label:"Total del viaje",val:`${sym} ${fmt(grand)}`,col:C.text},
+              {label:"Le corresponde pagar a cada uno",val:`${sym} ${fmt(half)}`,col:C.muted},
+              {label:"Jonathan pagó",val:`${sym} ${fmt(paidJ)}`,col:C.accent},
+              {label:"Giselle pagó",val:`${sym} ${fmt(paidG)}`,col:C.purple},
+              {label:"Balance Jonathan",val:`${balJ>=0?"+":""}${sym} ${fmt(balJ)}`,col:balJ>0.5?C.green:balJ<-0.5?C.red:C.muted},
+              {label:"Balance Giselle",val:`${balG>=0?"+":""}${sym} ${fmt(balG)}`,col:balG>0.5?C.green:balG<-0.5?C.red:C.muted},
+            ].map(r=>(
+              <div key={r.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.05)",fontSize:13}}>
+                <span style={{color:C.muted}}>{r.label}</span>
+                <span style={{fontWeight:700,color:r.col}}>{r.val}</span>
+              </div>
+            ))}
+            <div style={{marginTop:14,padding:"13px 16px",borderRadius:10,background:vColor===C.green?"rgba(110,201,169,0.1)":grand>0?"rgba(224,117,117,0.08)":"rgba(255,255,255,0.04)",border:`1px solid ${vColor}`,fontSize:14,fontWeight:700,color:vColor,textAlign:"center"}}>
+              {vText}
+            </div>
+          </div>
+        </div>
+
+        <button onClick={()=>{if(window.confirm("¿Borrar todos los gastos?")){setRows(()=>{const r={};CATEGORIES.forEach(c=>r[c.id]=[]);return r;});setNotes("");}}}
+          style={{padding:"12px 22px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,color:C.muted,fontWeight:600,fontSize:14,cursor:"pointer"}}>
+          🗑️ Limpiar todo
+        </button>
+
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
